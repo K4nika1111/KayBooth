@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Kaybooth — Online Photobooth</title>
+<meta name="description" content="A free online photobooth. Step into the booth, strike a pose, walk out with a strip." />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root{
+    --cream:#FBF3E7;
+    --curtain:#3B0E1E;
+    --curtain-dark:#230812;
+    --curtain-light:#5A1830;
+    --gold:#F2B705;
+    --gold-dim:#B98A0E;
+    --rose:#E88C8C;
+    --blue:#6FA8E8;
+    --ink:#241016;
+    --paper:#FFFDF9;
+    --shadow: 0 20px 45px rgba(35,8,18,0.35);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--curtain-dark);
+    color:var(--cream);
+    font-family:'Space Grotesk', sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  h1,h2,h3{font-family:'Anton', sans-serif; font-weight:400; letter-spacing:0.02em; margin:0;}
+  .mono{font-family:'Space Mono', monospace;}
+  button{font-family:inherit; cursor:pointer; border:none;}
+  button:focus-visible, input:focus-visible, a:focus-visible{
+    outline:3px solid var(--blue); outline-offset:3px;
+  }
+  .hidden{display:none !important;}
+  img{-webkit-user-drag:none; user-select:none;}
+
+  /* ---------- shared bits ---------- */
+  .pill-btn{
+    display:inline-flex; align-items:center; gap:10px;
+    background:var(--gold); color:var(--curtain-dark);
+    padding:16px 30px; border-radius:999px;
+    font-weight:700; font-size:1rem; letter-spacing:0.02em;
+    box-shadow:0 10px 25px rgba(242,183,5,0.25);
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .pill-btn:hover{ transform:translateY(-2px); box-shadow:0 14px 30px rgba(242,183,5,0.35); }
+  .pill-btn:active{ transform:translateY(0px) scale(.98); }
+  .pill-btn.ghost{
+    background:transparent; color:var(--cream);
+    border:2px solid rgba(251,243,231,0.35);
+    box-shadow:none;
+  }
+  .pill-btn.ghost:hover{ border-color:var(--gold); color:var(--gold); }
+
+  /* ================= HERO ================= */
+  #hero{
+    min-height:100vh; position:relative;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:60px 20px;
+    background:
+      radial-gradient(ellipse at 50% -10%, var(--curtain-light) 0%, transparent 60%),
+      linear-gradient(180deg, var(--curtain) 0%, var(--curtain-dark) 100%);
+    overflow:hidden;
+  }
+  .bulb-row{
+    position:absolute; left:0; right:0; height:14px;
+    display:flex; justify-content:space-evenly; align-items:center;
+    padding:0 4vw;
+  }
+  .bulb-row.top{ top:22px; }
+  .bulb-row.bottom{ bottom:22px; }
+  .bulb{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--gold);
+    box-shadow:0 0 6px 2px rgba(242,183,5,0.6);
+    animation:bulbGlow 2.6s ease-in-out infinite;
+  }
+  @keyframes bulbGlow{
+    0%,100%{ opacity:.25; }
+    50%{ opacity:1; }
+  }
+  .marquee{
+    font-size:clamp(3rem, 12vw, 7rem);
+    color:var(--gold);
+    text-shadow:0 0 18px rgba(242,183,5,0.35);
+    margin-bottom:6px;
+  }
+  .tagline{
+    font-size:clamp(1rem,2.4vw,1.25rem);
+    color:var(--rose);
+    max-width:520px; margin:0 auto 6px;
+    font-weight:500;
+  }
+  .microcopy{
+    font-family:'Space Mono', monospace;
+    font-size:0.8rem;
+    color:rgba(251,243,231,0.55);
+    letter-spacing:0.04em;
+    margin-top:6px;
+  }
+  .mode-row{
+    display:flex; gap:16px; flex-wrap:wrap; justify-content:center;
+    margin-top:34px;
+  }
+  .mode-card{
+    width:220px; background:rgba(251,243,231,0.06);
+    border:1px solid rgba(251,243,231,0.15);
+    border-radius:18px; padding:22px 18px; text-align:left;
+    transition:border-color .2s ease, transform .2s ease, background .2s ease;
+  }
+  .mode-card:hover{ border-color:var(--gold); transform:translateY(-3px); background:rgba(251,243,231,0.09); }
+  .mode-card h3{ font-size:1.5rem; color:var(--cream); margin-bottom:6px; }
+  .mode-card p{ font-size:0.85rem; color:rgba(251,243,231,0.65); margin:0 0 16px; line-height:1.5; }
+  .mode-card button{ width:100%; justify-content:center; }
+  .cam-note{
+    max-width:480px; margin:36px auto 0; font-size:0.8rem;
+    color:rgba(251,243,231,0.4); line-height:1.5;
+  }
+
+  /* ================= BOOTH ================= */
+  #booth{
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    padding:26px 16px 40px; background:var(--curtain-dark);
+  }
+  .booth-top{
+    width:100%; max-width:640px; display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:18px; gap:10px;
+  }
+  .back-btn{
+    background:transparent; color:var(--cream); display:flex; align-items:center; gap:6px;
+    font-size:0.9rem; opacity:0.8; padding:8px;
+  }
+  .back-btn:hover{ opacity:1; color:var(--gold); }
+  .shot-dots{ display:flex; gap:8px; }
+  .shot-dots span{
+    width:9px; height:9px; border-radius:50%;
+    background:rgba(251,243,231,0.25); transition:background .3s ease, transform .3s ease;
+  }
+  .shot-dots span.done{ background:var(--gold); transform:scale(1.15); }
+
+  .filter-row{
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:16px;
+  }
+  .filter-chip{
+    background:rgba(251,243,231,0.08); color:rgba(251,243,231,0.75);
+    border:1px solid rgba(251,243,231,0.15);
+    padding:8px 16px; border-radius:999px; font-size:0.8rem; letter-spacing:0.02em;
+    transition:all .18s ease;
+  }
+  .filter-chip.active{ background:var(--gold); color:var(--curtain-dark); border-color:var(--gold); font-weight:700;}
+
+  .stage-wrap{
+    position:relative; width:100%; max-width:520px; aspect-ratio:4/3;
+    border-radius:24px; overflow:hidden;
+    box-shadow:var(--shadow);
+    background:#120309;
+  }
+  .curtain-side{
+    position:absolute; top:0; bottom:0; width:14%; z-index:3;
+    background:linear-gradient(90deg, var(--curtain-light), var(--curtain));
+    transition:transform .9s cubic-bezier(.6,0,.2,1);
+  }
+  .curtain-side.left{ left:0; border-radius:0 40px 40px 0; transform-origin:left; }
+  .curtain-side.right{ right:0; border-radius:40px 0 0 40px; transform-origin:right; }
+  .curtain-side.open.left{ transform:translateX(-100%); }
+  .curtain-side.open.right{ transform:translateX(100%); }
+  @media (prefers-reduced-motion:reduce){ .curtain-side{ transition:none; } }
+
+  #video{
+    width:100%; height:100%; object-fit:cover; transform:scaleX(-1);
+    display:block; background:#0d0208;
+  }
+  .partner-slot{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; background:rgba(0,0,0,0.4); color:var(--cream); text-align:center; padding:20px;
+    z-index:4;
+  }
+  .partner-slot img{ max-width:60%; max-height:50%; border-radius:10px; }
+  .flash{
+    position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:5;
+  }
+  .flash.pop{ animation:flashPop .45s ease-out; }
+  @keyframes flashPop{ 0%{opacity:0;} 12%{opacity:1;} 100%{opacity:0;} }
+
+  .countdown{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    z-index:4; pointer-events:none;
+  }
+  .countdown span{
+    font-family:'Anton', sans-serif; font-size:5.5rem; color:var(--cream);
+    background:rgba(35,8,18,0.45); width:130px; height:130px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    text-shadow:0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  .fallback-note{
+    position:absolute; inset:0; z-index:4; display:flex; flex-direction:column; gap:14px;
+    align-items:center; justify-content:center; text-align:center; padding:26px;
+    background:rgba(18,3,9,0.92); color:rgba(251,243,231,0.85);
+  }
+  .fallback-note p{ font-size:0.85rem; max-width:320px; line-height:1.5; margin:0; }
+  .upload-label{
+    background:var(--gold); color:var(--curtain-dark); padding:10px 20px; border-radius:999px;
+    font-weight:700; font-size:0.85rem;
+  }
+
+  .capture-row{ margin-top:22px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .capture-btn{
+    width:78px; height:78px; border-radius:50%;
+    background:var(--gold); border:5px solid var(--cream);
+    box-shadow:0 8px 20px rgba(242,183,5,0.35);
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .15s ease;
+  }
+  .capture-btn:hover{ transform:scale(1.05); }
+  .capture-btn:active{ transform:scale(0.94); }
+  .capture-btn:disabled{ opacity:0.5; cursor:not-allowed; }
+  .capture-hint{ font-size:0.78rem; color:rgba(251,243,231,0.5); }
+
+  /* ================= STRIP VIEW ================= */
+  #strip{
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    padding:50px 16px; background:
+      radial-gradient(ellipse at 50% 0%, var(--curtain-light) 0%, transparent 55%),
+      var(--curtain-dark);
+  }
+  #strip h2{ color:var(--gold); font-size:clamp(1.8rem,5vw,2.6rem); margin-bottom:6px; text-align:center;}
+  #strip .sub{ color:rgba(251,243,231,0.6); font-size:0.9rem; margin-bottom:28px; text-align:center; }
+  .strip-canvas-wrap{
+    background:var(--paper); padding:10px; border-radius:8px; box-shadow:var(--shadow);
+    max-width:92vw;
+  }
+  #stripCanvas{ display:block; max-width:100%; height:auto; border-radius:4px; }
+  .strip-actions{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-top:28px; }
+
+  canvas.offscreen{ display:none; }
+
+  @media (max-width:520px){
+    .mode-card{ width:100%; max-width:320px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ HERO ============ -->
+<section id="hero">
+  <div class="bulb-row top" id="bulbTop"></div>
+  <div class="bulb-row bottom" id="bulbBottom"></div>
+
+  <h1 class="marquee">KAYBOOTH</h1>
+  <p class="tagline">A little photobooth for right now. Step in, count down, walk out with a strip.</p>
+  <p class="microcopy">NO APP · NO ACCOUNT · JUST PRESS CAPTURE</p>
+
+  <div class="mode-row">
+    <div class="mode-card">
+      <h3>Solo</h3>
+      <p>Just you, four frames, one strip. Classic booth energy.</p>
+      <button class="pill-btn" data-mode="solo">Step in →</button>
+    </div>
+    <div class="mode-card">
+      <h3>Duo</h3>
+      <p>You on camera, a photo of them alongside you — split down the middle, one warm, one cool.</p>
+      <button class="pill-btn" data-mode="duo">Step in →</button>
+    </div>
+  </div>
+
+  <p class="cam-note">Kaybooth asks for camera access to take your photos — nothing ever leaves your browser. If your camera is blocked or you're on a device without one, you can upload photos instead.</p>
+</section>
+
+<!-- ============ BOOTH ============ -->
+<section id="booth" class="hidden">
+  <div class="booth-top">
+    <button class="back-btn" id="backBtn">← Leave booth</button>
+    <div class="shot-dots" id="shotDots"></div>
+  </div>
+
+  <div class="filter-row" id="filterRow">
+    <button class="filter-chip active" data-filter="original">Original</button>
+    <button class="filter-chip" data-filter="noir">Noir</button>
+    <button class="filter-chip" data-filter="sepia">Sepia</button>
+    <button class="filter-chip" data-filter="vintage">Vintage</button>
+  </div>
+
+  <div class="stage-wrap" id="stageWrap">
+    <div class="curtain-side left" id="curtainLeft"></div>
+    <div class="curtain-side right" id="curtainRight"></div>
+    <video id="video" autoplay playsinline muted></video>
+    <div class="flash" id="flash"></div>
+    <div class="countdown hidden" id="countdown"><span id="countdownNum">3</span></div>
+    <div class="fallback-note hidden" id="fallbackNote">
+      <p id="fallbackMsg">Couldn't reach your camera. That's alright — you can upload photos instead and Kaybooth will build your strip from those.</p>
+      <label class="upload-label" for="fallbackInput">Choose a photo</label>
+      <input type="file" id="fallbackInput" accept="image/*" class="hidden" />
+    </div>
+    <div class="partner-slot hidden" id="partnerSlot">
+      <p>Add a photo of them to sit alongside you in every frame.</p>
+      <label class="upload-label" for="partnerInput">Choose their photo</label>
+      <input type="file" id="partnerInput" accept="image/*" class="hidden" />
+    </div>
+  </div>
+
+  <div class="capture-row">
+    <button class="capture-btn" id="captureBtn" aria-label="Start capturing">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" stroke="#241016" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4" stroke="#241016" stroke-width="1.6"/></svg>
+    </button>
+    <p class="capture-hint" id="captureHint">Press to take 4 photos, one after another</p>
+  </div>
+</section>
+
+<!-- ============ STRIP ============ -->
+<section id="strip" class="hidden">
+  <h2>Your strip is ready</h2>
+  <p class="sub">Developed fresh, straight out of the booth.</p>
+  <div class="strip-canvas-wrap">
+    <canvas id="stripCanvas"></canvas>
+  </div>
+  <div class="strip-actions">
+    <button class="pill-btn" id="downloadBtn">Download strip</button>
+    <button class="pill-btn ghost" id="retakeBtn">Retake</button>
+    <button class="pill-btn ghost" id="restartBtn">Start over</button>
+  </div>
+</section>
+
+<canvas id="work" class="offscreen"></canvas>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- state ---------- */
+  const state = {
+    mode: 'solo',
+    filter: 'original',
+    shotsNeeded: 4,
+    shots: [],
+    partnerImg: null,
+    stream: null,
+    usingFallback: false,
+    boothCode: genCode()
+  };
+
+  function genCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = 'KB-';
+    for(let i=0;i<5;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  }
+
+  /* ---------- bulb rows ---------- */
+  function buildBulbRow(el, count){
+    el.innerHTML = '';
+    for(let i=0;i<count;i++){
+      const b = document.createElement('span');
+      b.className = 'bulb';
+      b.style.animationDelay = (i*0.09)+'s';
+      el.appendChild(b);
+    }
+  }
+  buildBulbRow(document.getElementById('bulbTop'), 26);
+  buildBulbRow(document.getElementById('bulbBottom'), 26);
+
+  /* ---------- shot dots ---------- */
+  const shotDotsEl = document.getElementById('shotDots');
+  function buildShotDots(){
+    shotDotsEl.innerHTML = '';
+    for(let i=0;i<state.shotsNeeded;i++){
+      const d = document.createElement('span');
+      shotDotsEl.appendChild(d);
+    }
+  }
+  function updateShotDots(){
+    [...shotDotsEl.children].forEach((el,i)=>{
+      el.classList.toggle('done', i < state.shots.length);
+    });
+  }
+
+  /* ---------- view switching ---------- */
+  const views = {
+    hero: document.getElementById('hero'),
+    booth: document.getElementById('booth'),
+    strip: document.getElementById('strip')
+  };
+  function showView(name){
+    Object.values(views).forEach(v=>v.classList.add('hidden'));
+    views[name].classList.remove('hidden');
+  }
+
+  /* ---------- hero mode buttons ---------- */
+  document.querySelectorAll('[data-mode]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.mode = btn.dataset.mode;
+      state.shots = [];
+      state.partnerImg = null;
+      state.boothCode = genCode();
+      buildShotDots();
+      updateShotDots();
+      showView('booth');
+      resetCurtains();
+      const partnerSlot = document.getElementById('partnerSlot');
+      if(state.mode === 'duo'){
+        partnerSlot.classList.remove('hidden');
+        document.getElementById('captureBtn').disabled = true;
+        document.getElementById('captureHint').textContent = 'Add their photo first, then start capturing';
+      } else {
+        partnerSlot.classList.add('hidden');
+        document.getElementById('captureBtn').disabled = false;
+        document.getElementById('captureHint').textContent = 'Press to take 4 photos, one after another';
+      }
+      startCamera();
+    });
+  });
+
+  document.getElementById('backBtn').addEventListener('click', ()=>{
+    stopCamera();
+    showView('hero');
+  });
+  document.getElementById('restartBtn').addEventListener('click', ()=>{
+    stopCamera();
+    showView('hero');
+  });
+
+  /* ---------- curtains ---------- */
+  const curtainLeft = document.getElementById('curtainLeft');
+  const curtainRight = document.getElementById('curtainRight');
+  function resetCurtains(){
+    curtainLeft.classList.remove('open');
+    curtainRight.classList.remove('open');
+    requestAnimationFrame(()=>{
+      setTimeout(()=>{
+        curtainLeft.classList.add('open');
+        curtainRight.classList.add('open');
+      }, 250);
+    });
+  }
+
+  /* ---------- filters ---------- */
+  const filterRow = document.getElementById('filterRow');
+  filterRow.addEventListener('click', (e)=>{
+    const chip = e.target.closest('.filter-chip');
+    if(!chip) return;
+    state.filter = chip.dataset.filter;
+    [...filterRow.children].forEach(c=>c.classList.toggle('active', c===chip));
+  });
+  const FILTER_CSS = {
+    original: 'none',
+    noir: 'grayscale(1) contrast(1.15) brightness(1.05)',
+    sepia: 'sepia(0.85) contrast(1.05) saturate(1.3)',
+    vintage: 'sepia(0.35) contrast(0.92) saturate(1.35) brightness(1.05)'
+  };
+
+  /* ---------- camera ---------- */
+  const video = document.getElementById('video');
+  const fallbackNote = document.getElementById('fallbackNote');
+  const fallbackInput = document.getElementById('fallbackInput');
+  const captureBtn = document.getElementById('captureBtn');
+
+  async function startCamera(){
+    state.usingFallback = false;
+    fallbackNote.classList.add('hidden');
+    video.classList.remove('hidden');
+    stopCamera();
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      return goFallback('This browser can’t reach a camera from here.');
+    }
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user' }, audio:false });
+      state.stream = stream;
+      video.srcObject = stream;
+    }catch(err){
+      goFallback('Camera access was blocked or unavailable.');
+    }
+  }
+  function stopCamera(){
+    if(state.stream){
+      state.stream.getTracks().forEach(t=>t.stop());
+      state.stream = null;
+    }
+  }
+  function goFallback(msg){
+    state.usingFallback = true;
+    document.getElementById('fallbackMsg').textContent = msg + ' You can upload photos instead and Kaybooth will build your strip from those.';
+    video.classList.add('hidden');
+    fallbackNote.classList.remove('hidden');
+  }
+
+  let fallbackImg = null;
+  fallbackInput.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      fallbackImg = new Image();
+      fallbackImg.onload = ()=>{ takeShot(); };
+      fallbackImg.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  /* ---------- partner photo (duo mode) ---------- */
+  const partnerInput = document.getElementById('partnerInput');
+  partnerInput.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      const img = new Image();
+      img.onload = ()=>{
+        state.partnerImg = img;
+        document.getElementById('partnerSlot').classList.add('hidden');
+        captureBtn.disabled = false;
+        document.getElementById('captureHint').textContent = 'Press to take 4 photos, one after another';
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  /* ---------- capture sequence ---------- */
+  const work = document.getElementById('work');
+  const wctx = work.getContext('2d');
+  const flashEl = document.getElementById('flash');
+  const countdownEl = document.getElementById('countdown');
+  const countdownNum = document.getElementById('countdownNum');
+
+  function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+  function drawCover(ctx, img, dx, dy, dw, dh){
+    const iw = img.videoWidth || img.naturalWidth || img.width;
+    const ih = img.videoHeight || img.naturalHeight || img.height;
+    const ir = iw/ih, dr = dw/dh;
+    let sx,sy,sw,sh;
+    if(ir > dr){ sh = ih; sw = ih*dr; sx = (iw-sw)/2; sy = 0; }
+    else{ sw = iw; sh = iw/dr; sx = 0; sy = (ih-sh)/2; }
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  }
+
+  function grainOverlay(ctx, w, h, alpha){
+    const n = 900;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    for(let i=0;i<n;i++){
+      const gx = Math.random()*w, gy = Math.random()*h;
+      const v = Math.random()*255;
+      ctx.fillStyle = 'rgba('+v+','+v+','+v+',1)';
+      ctx.fillRect(gx, gy, 1.4, 1.4);
+    }
+    ctx.restore();
+  }
+
+  function vignette(ctx, w, h){
+    const grad = ctx.createRadialGradient(w/2,h/2, h*0.35, w/2,h/2, h*0.75);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(20,5,10,0.35)');
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,w,h);
+    ctx.restore();
+  }
+
+  function captureFrame(){
+    const W = 640, H = 480;
+    work.width = W; work.height = H;
+    wctx.save();
+    wctx.filter = FILTER_CSS[state.filter];
+
+    if(state.mode === 'duo'){
+      // left half: mirrored live camera (blue wash), right half: partner photo (rose wash)
+      wctx.save();
+      wctx.beginPath(); wctx.rect(0,0,W/2,H); wctx.clip();
+      wctx.translate(W/2,0); wctx.scale(-1,1);
+      const src = state.usingFallback ? fallbackImg : video;
+      drawCover(wctx, src, 0, 0, W/2, H);
+      wctx.restore();
+
+      if(state.partnerImg){
+        wctx.save();
+        wctx.beginPath(); wctx.rect(W/2,0,W/2,H); wctx.clip();
+        drawCover(wctx, state.partnerImg, W/2, 0, W/2, H);
+        wctx.restore();
+      }
+      wctx.restore(); // release filter for tint overlays
+      wctx.save();
+      wctx.globalCompositeOperation = 'overlay';
+      wctx.fillStyle = 'rgba(111,168,232,0.22)';
+      wctx.fillRect(0,0,W/2,H);
+      wctx.fillStyle = 'rgba(232,140,140,0.22)';
+      wctx.fillRect(W/2,0,W/2,H);
+      wctx.restore();
+      wctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      wctx.lineWidth = 2;
+      wctx.beginPath(); wctx.moveTo(W/2,0); wctx.lineTo(W/2,H); wctx.stroke();
+    } else {
+      wctx.save();
+      wctx.translate(W,0); wctx.scale(-1,1);
+      const src = state.usingFallback ? fallbackImg : video;
+      drawCover(wctx, src, 0, 0, W, H);
+      wctx.restore();
+      wctx.restore();
+    }
+
+    if(state.filter === 'vintage'){
+      vignette(wctx, W, H);
+      grainOverlay(wctx, W, H, 0.05);
+    }
+
+    state.shots.push(work.toDataURL('image/jpeg', 0.92));
+    updateShotDots();
+  }
+
+  async function takeShot(){
+    if(state.usingFallback){
+      captureFrame();
+      fallbackInput.value = '';
+      afterShot();
+      return;
+    }
+    captureBtn.disabled = true;
+    countdownEl.classList.remove('hidden');
+    for(let n=3;n>=1;n--){
+      countdownNum.textContent = n;
+      await sleep(650);
+    }
+    countdownEl.classList.add('hidden');
+    flashEl.classList.remove('pop');
+    void flashEl.offsetWidth;
+    flashEl.classList.add('pop');
+    captureFrame();
+    await sleep(500);
+    afterShot();
+  }
+
+  async function afterShot(){
+    if(state.shots.length >= state.shotsNeeded){
+      finishSession();
+      return;
+    }
+    if(state.usingFallback){
+      // wait for the user to choose the next photo
+      return;
+    }
+    await sleep(500);
+    captureBtn.disabled = false;
+    takeShot();
+  }
+
+  captureBtn.addEventListener('click', ()=>{
+    if(captureBtn.disabled) return;
+    if(state.shots.length === 0 || state.usingFallback){
+      takeShot();
+    }
+  });
+
+  function finishSession(){
+    stopCamera();
+    showView('strip');
+    renderStrip();
+  }
+
+  /* ---------- retake ---------- */
+  document.getElementById('retakeBtn').addEventListener('click', ()=>{
+    state.shots = [];
+    buildShotDots();
+    updateShotDots();
+    showView('booth');
+    resetCurtains();
+    captureBtn.disabled = false;
+    startCamera();
+  });
+
+  /* ---------- strip rendering ---------- */
+  const stripCanvas = document.getElementById('stripCanvas');
+  const sctx = stripCanvas.getContext('2d');
+
+  async function loadFont(spec){
+    try{ await document.fonts.load(spec); }catch(e){ /* fallback silently */ }
+  }
+
+  async function renderStrip(){
+    await Promise.all([
+      loadFont("700 46px Anton"),
+      loadFont("400 20px 'Space Mono'"),
+      loadFont("700 20px 'Space Mono'")
+    ]);
+
+    const pad = 26, gap = 16, cellW = 460;
+    const cellH = state.mode === 'duo' ? 300 : 320;
+    const footerH = 130;
+    const W = cellW + pad*2;
+    const H = pad + state.shotsNeeded*cellH + (state.shotsNeeded-1)*gap + footerH;
+
+    stripCanvas.width = W;
+    stripCanvas.height = H;
+
+    // paper background
+    sctx.fillStyle = '#FFFDF9';
+    sctx.fillRect(0,0,W,H);
+
+    // sprocket holes down both edges
+    sctx.fillStyle = 'rgba(36,16,22,0.15)';
+    for(let y=40; y<H-footerH; y+=26){
+      sctx.beginPath(); sctx.arc(12,y,4,0,Math.PI*2); sctx.fill();
+      sctx.beginPath(); sctx.arc(W-12,y,4,0,Math.PI*2); sctx.fill();
+    }
+
+    // load & draw each shot
+    const imgs = await Promise.all(state.shots.map(src=>new Promise(res=>{
+      const im = new Image(); im.onload=()=>res(im); im.src = src;
+    })));
+
+    imgs.forEach((im, i)=>{
+      const x = pad, y = pad + i*(cellH+gap);
+      sctx.save();
+      roundRectPath(sctx, x, y, cellW, cellH, 10);
+      sctx.clip();
+      drawCover(sctx, im, x, y, cellW, cellH);
+      sctx.restore();
+      sctx.save();
+      sctx.strokeStyle = 'rgba(36,16,22,0.08)';
+      sctx.lineWidth = 1;
+      roundRectPath(sctx, x, y, cellW, cellH, 10);
+      sctx.stroke();
+      sctx.restore();
+    });
+
+    // footer
+    const footerY = pad + state.shotsNeeded*cellH + (state.shotsNeeded-1)*gap;
+    sctx.fillStyle = '#241016';
+    sctx.textAlign = 'center';
+    sctx.font = "700 40px Anton";
+    sctx.fillText('KAYBOOTH', W/2, footerY + 52);
+
+    sctx.font = "400 15px 'Space Mono'";
+    sctx.fillStyle = 'rgba(36,16,22,0.55)';
+    const dateStr = new Date().toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+    sctx.fillText(dateStr + '   ·   ' + state.boothCode, W/2, footerY + 78);
+
+    sctx.font = "400 13px 'Space Mono'";
+    sctx.fillStyle = 'rgba(36,16,22,0.4)';
+    sctx.fillText('developed in your browser, not a lab', W/2, footerY + 100);
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  /* ---------- download ---------- */
+  document.getElementById('downloadBtn').addEventListener('click', ()=>{
+    stripCanvas.toBlob(blob=>{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'kaybooth-strip.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  });
+
+})();
+</script>
+</body>
+</html>
